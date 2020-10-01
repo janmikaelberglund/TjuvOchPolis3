@@ -2,14 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Reflection.Metadata.Ecma335;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TjuvOchPolis3
 {
-
-
     class Program
     {
         // Settings
@@ -17,6 +16,7 @@ namespace TjuvOchPolis3
         public static int number_of_thieves = 20;
         public static int number_of_upstandingCitizens = 30;
         public static int pauseTimePerCycle = 0;
+        public static int pauseAtEvent = 2000;
         // 
 
         public static List<Prison> prison = new List<Prison>();
@@ -27,30 +27,24 @@ namespace TjuvOchPolis3
             Console.WriteLine("Om programmet körs för snabbt kan du ändra steghasigheten, rek. 0-200ms");
             pauseTimePerCycle = int.Parse(Console.ReadLine());
 
-            Console.BackgroundColor = ConsoleColor.Black;
-
-            //Console.WindowHeight = 45;
-            //Console.WindowWidth = 120;
+            Console.WindowHeight = 45;
+            Console.WindowWidth = 120;
 
             int[] mapSize = { 25, 100 }; // X-axel, Y-axel
 
             List<Person> citizens = new List<Person>();
             AddCitizens(citizens, mapSize);
+
             Console.Clear();
             Console.WriteLine("Tjuv och polis:");
+
             while (programIsrunning)
             {
-
-                //Console.SetCursorPosition(0, 1);
-                Console.Clear();
+                Console.SetCursorPosition(0, 1);
                 PrintToConsole(mapSize, citizens);
                 Thread.Sleep(pauseTimePerCycle);
                 Movement(mapSize, citizens);
                 Meeting(citizens);
-
-
-
-
             }
         }
 
@@ -88,59 +82,28 @@ namespace TjuvOchPolis3
                         if ((((Thief)person).Swag[0] + ((Thief)person).Swag[1]
                             + ((Thief)person).Swag[2] + ((Thief)person).Swag[3]) > 0)
                         {
-                            citizens[temporaryIndexPolice].Evidence[0] += ((Thief)person).Swag[0];
+                            citizens[temporaryIndexPolice].Evidence[0] += ((Thief)person).Swag[0];//Lägger tjuvens stöldgods i polisens inventory
                             citizens[temporaryIndexPolice].Evidence[1] += ((Thief)person).Swag[1];
                             citizens[temporaryIndexPolice].Evidence[2] += ((Thief)person).Swag[2];
                             citizens[temporaryIndexPolice].Evidence[3] += ((Thief)person).Swag[3];
-                            ((Thief)person).Swag[0] = 0;
+                            ((Thief)person).Swag[0] = 0; //tömmer tjuvens inventory
                             ((Thief)person).Swag[1] = 0;
                             ((Thief)person).Swag[2] = 0;
                             ((Thief)person).Swag[3] = 0;
                             thief_police = true;
                             arrests++;
                             ((Thief)person).Prisoner = true;
-                            prison.Add(new Prison(DateTime.Now));
+                            prison.Add(new Prison(DateTime.Now)); //Sätter tjuven i fängelse-listen vid tidpunkten polisen haffar denne.
                         }
                     }
                 }
             }
         }
 
-        private static void IsFreePerson(int x, int y, List<Person> citizens) 
-        {
-            thief = false;
-            upstandingCitizen = false;
-            police = false;
 
-            foreach (Person person in citizens)
-            {
-                if (person is UpstandingCitizen)
-                {
-                    if (x == ((UpstandingCitizen)person).Xposition && y == ((UpstandingCitizen)person).Yposition)
-                    {
-                        temporaryIndexUpstandingCitizen = citizens.IndexOf(person);
-                        upstandingCitizen = true;
-                    }
-                }
-                if (person is Thief && !person.Prisoner)
-                {
-                    if (x == ((Thief)person).Xposition && y == ((Thief)person).Yposition)
-                    {
-                       thief = true;
-                    }
-                }
-                if (person is Police)
-                {
-                    if (x == ((Police)person).Xposition && y == ((Police)person).Yposition)
-                    {
-                        temporaryIndexPolice = citizens.IndexOf(person);
-                        police = true;
-                    }
-                }
-            }
-        }
 
-        private static void Movement(int[] mapSize, List<Person> citizens) //Flyttar varje person ett steg i sin redan bestämda riktning.
+        private static void Movement(int[] mapSize, List<Person> citizens) //Flyttar varje person ett steg i sin redan bestämda riktning
+                                                                           //och ser till att de hamnar på andra sidan staden om de går utanför kanten.
         {
             thief_upstandingCitizen = false;
             thief_police = false;
@@ -208,7 +171,7 @@ namespace TjuvOchPolis3
 
         private static void PrintToConsole(int[] mapSize, List<Person> citizens) //Ritar ut det som syns i konsollen.
         {
-            for (int x = 0; x < mapSize[0]; x++)
+            for (int x = 0; x < mapSize[0]; x++) //Ritar ut kartan och varje person.
             {
                 for (int y = 0; y < mapSize[1]; y++)
                 {
@@ -243,24 +206,21 @@ namespace TjuvOchPolis3
                 Console.WriteLine();
             }
 
+
             Console.WriteLine($"Antal rån:           {robberies}");
             Console.WriteLine($"Antal rånförsök:     {attemptedRobberies}");
             Console.WriteLine($"Antal arresteringar: {arrests}");
             Console.WriteLine();
 
-            Console.WriteLine("Fängelse: ");
-            if (Prison())
-            {
-                Console.SetCursorPosition(0, 39);
-                Console.WriteLine("En fånge har släppts från fängelset.");
-                Thread.Sleep(1000);
-
-            }                                                                       
+            // Skriver ut alla som sitter i fängelset och hur längde de har setat inne.
+            Console.WriteLine("Fängelse: "); 
             foreach (var thief in prison)
             {
                 Console.WriteLine($"Denna fånge har setat {ShowSecondsServed(DateTime.Now.Second, ((Prison)thief).TimeServed.Second)} sekunder i fängelset.");
             }
-            if (thief_police || thief_upstandingCitizen)
+
+            // Skriver ut om en tjuv stöter på någon.
+            if (thief_police || thief_upstandingCitizen) 
             {
                 Console.SetCursorPosition(0, 40);
                 if (thief_upstandingCitizen)
@@ -271,38 +231,72 @@ namespace TjuvOchPolis3
                 {
                     Console.WriteLine("Polis har fångat en tjuv");
                 }
-                Thread.Sleep(2000);
-                Console.SetCursorPosition(0, 31);
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
-                Console.WriteLine("                                                             ");
+                Thread.Sleep(pauseAtEvent);
+                Console.SetCursorPosition(0, 40);
                 Console.WriteLine("                                                             ");
                 Console.WriteLine("                                                             ");
                 Console.WriteLine("                                                             ");
 
+                //Skriver om en fånge frisläpps och rensar fängelselistan
+                if (Prison())
+                {
+                    Console.SetCursorPosition(0, 39);
+                    Console.WriteLine("En fånge har släppts från fängelset.");
+                    Thread.Sleep(pauseAtEvent);
+                    Console.SetCursorPosition(0, 31);
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                    Console.WriteLine("                                                             ");
+                }
             }
         }
 
-        private static bool Prison() // Räknar fångarnas fängelsetid samt frisläpper fångar
+        private static void IsFreePerson(int x, int y, List<Person> citizens) //Kontrollerar om och vilken typ av person som finns på den aktuella platsen: x, y
+                                                                              //Samt om personen är en fri person eller sitter i fängelset.
+        {
+            thief = false;
+            upstandingCitizen = false;
+            police = false;
+
+            foreach (Person person in citizens)
+            {
+                if (person is UpstandingCitizen)
+                {
+                    if (x == ((UpstandingCitizen)person).Xposition && y == ((UpstandingCitizen)person).Yposition)
+                    {
+                        temporaryIndexUpstandingCitizen = citizens.IndexOf(person);
+                        upstandingCitizen = true;
+                    }
+                }
+                if (person is Thief && !person.Prisoner)
+                {
+                    if (x == ((Thief)person).Xposition && y == ((Thief)person).Yposition)
+                    {
+                        thief = true;
+                    }
+                }
+                if (person is Police)
+                {
+                    if (x == ((Police)person).Xposition && y == ((Police)person).Yposition)
+                    {
+                        temporaryIndexPolice = citizens.IndexOf(person);
+                        police = true;
+                    }
+                }
+            }
+        }
+
+        private static bool Prison() //Räknar fångarnas fängelsetid samt tar bort fångar från fängelset och returnar true om någon frisläpps
         {
             bool releaseFromPrison = false;
-            //int indexOfPrisoner = 99; // Talet måste ha ett startvärde för att inte få kompileringsfel
-            //for (int i = prison.Count - 1; 0 <= i; i--)
-            //{
-            //    
-            //    if ((prison)prison[i].TimeToServe <= DateTime.Now)
-            //    {
-            //        releaseFromPrison = true;
-            //        indexOfPrisoner = i;
-            //    }
-            //}
             int[] prisonersToBeRelased = new int[10];
 
             int i = 0;
@@ -311,7 +305,6 @@ namespace TjuvOchPolis3
                 if (((Prison)thief).TimeToServe <= DateTime.Now)
                 {
                     releaseFromPrison = true;
-                    //indexOfPrisoner = prison.IndexOf(thief);
                     prisonersToBeRelased[i] = prison.IndexOf(thief) + 1;
                     i++;
                 }
@@ -325,7 +318,6 @@ namespace TjuvOchPolis3
             }
             if (releaseFromPrison)
             {
-                //prison.RemoveAt(indexOfPrisoner);
                 return true;
             }
             else
@@ -334,7 +326,7 @@ namespace TjuvOchPolis3
             }
         }
 
-        private static int ShowSecondsServed(int timeNow, int timeServed)
+        private static int ShowSecondsServed(int timeNow, int timeServed) //Räknar hur länge någon setat i fängelset.
         {
             if ((timeNow - timeServed) > -1)
             {
